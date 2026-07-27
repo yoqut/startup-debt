@@ -13,7 +13,16 @@ import {
   IconPlus,
   IconUser,
 } from "./icons";
-import { getTelegramUser, resolveFriendIndex, telegramDisplayName } from "./telegram";
+import {
+  getTg,
+  initTelegram,
+  resolveFriendIndex,
+  telegramDisplayName,
+  applyTelegramTheme,
+  syncTelegramChrome,
+  syncTelegramViewportVar,
+  haptic,
+} from "./telegram";
 
 const fmt = (n) => Math.round(n).toLocaleString("uz-UZ").replace(/,/g, " ");
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -121,6 +130,7 @@ function SettingsForm({ friends, onRenameFriend, onCommitFriend, onClose }) {
   const save = () => {
     onCommitFriend(0);
     onCommitFriend(1);
+    haptic("success");
     onClose();
   };
   return (
@@ -177,6 +187,8 @@ function AddTransactionForm({
   busy,
   onDone,
   currentUserIndex,
+  onActionChange,
+  hideOwnSubmit,
 }) {
   const [tab, setTab] = useState("expense");
   const [expenseAmount0, setExpenseAmount0] = useState("");
@@ -220,131 +232,160 @@ function AddTransactionForm({
     onDone();
   };
 
+  const expenseCanSubmit = (parseFloat(expenseAmount0) || 0) + (parseFloat(expenseAmount1) || 0) > 0;
+  const transferCanSubmit = (parseFloat(transferAmount) || 0) > 0;
+
+  useEffect(() => {
+    onActionChange?.({
+      canSubmit: tab === "expense" ? expenseCanSubmit : transferCanSubmit,
+      run: tab === "expense" ? submitExpense : submitTransfer,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, expenseCanSubmit, transferCanSubmit, busy]);
+
   return (
     <div>
       <div className="tabs">
         <button
           className={`tab-btn ${tab === "expense" ? "active" : ""}`}
-          onClick={() => setTab("expense")}
+          onClick={() => {
+            haptic("light");
+            setTab("expense");
+          }}
         >
           <IconCart size={15} /> Xarid
         </button>
         <button
           className={`tab-btn ${tab === "transfer" ? "active" : ""}`}
-          onClick={() => setTab("transfer")}
+          onClick={() => {
+            haptic("light");
+            setTab("transfer");
+          }}
         >
           <IconSend size={15} /> Qarz berish/to'lash
         </button>
       </div>
 
-      {tab === "expense" ? (
-        <div>
-          <label>Kim qancha to'ladi?</label>
-          <div className="row">
-            <div>
-              <label>{friends[0]} (so'm)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="masalan: 200000"
-                min="0"
-                step="1000"
-                value={expenseAmount0}
-                onChange={(e) => setExpenseAmount0(e.target.value)}
-              />
+      <div className="tab-panels-viewport">
+        <div className={`tab-panels ${tab === "transfer" ? "shift" : ""}`}>
+          <div className="tab-panel">
+            <label>Kim qancha to'ladi?</label>
+            <div className="row">
+              <div>
+                <label>{friends[0]} (so'm)</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="masalan: 200000"
+                  min="0"
+                  step="1000"
+                  value={expenseAmount0}
+                  onChange={(e) => setExpenseAmount0(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>{friends[1]} (so'm)</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="masalan: 100000"
+                  min="0"
+                  step="1000"
+                  value={expenseAmount1}
+                  onChange={(e) => setExpenseAmount1(e.target.value)}
+                />
+              </div>
             </div>
-            <div>
-              <label>{friends[1]} (so'm)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="masalan: 100000"
-                min="0"
-                step="1000"
-                value={expenseAmount1}
-                onChange={(e) => setExpenseAmount1(e.target.value)}
-              />
-            </div>
-          </div>
-          <ExpenseShiftHint
-            friends={friends}
-            amount0={expenseAmount0}
-            amount1={expenseAmount1}
-          />
+            <ExpenseShiftHint
+              friends={friends}
+              amount0={expenseAmount0}
+              amount1={expenseAmount1}
+            />
 
-          <label>Sana</label>
-          <input
-            type="date"
-            value={expenseDate}
-            onChange={(e) => setExpenseDate(e.target.value)}
-          />
-          <label>Izoh (ixtiyoriy)</label>
-          <input
-            type="text"
-            placeholder="masalan: xarid"
-            value={expenseNote}
-            onChange={(e) => setExpenseNote(e.target.value)}
-          />
-          <button className="submit-btn" disabled={busy} onClick={submitExpense}>
-            Qo'shish
-          </button>
-        </div>
-      ) : (
-        <div>
-          <label>Yo'nalish</label>
-          <div className="pay-select">
-            <div
-              className={`pay-opt ${transferFrom === 0 ? "sel" : ""}`}
-              onClick={() => setTransferFromChoice(0)}
-            >
-              {friends[0]} → {friends[1]}
-            </div>
-            <div
-              className={`pay-opt ${transferFrom === 1 ? "sel" : ""}`}
-              onClick={() => setTransferFromChoice(1)}
-            >
-              {friends[1]} → {friends[0]}
-            </div>
-          </div>
-          <div className="hint">
-            {friends[transferFrom]} {friends[1 - transferFrom]}ga naqd pul
-            beradi (qarz berish ham, qarz to'lash ham shu yerdan).
+            <label>Sana</label>
+            <input
+              type="date"
+              value={expenseDate}
+              onChange={(e) => setExpenseDate(e.target.value)}
+            />
+            <label>Izoh (ixtiyoriy)</label>
+            <input
+              type="text"
+              placeholder="masalan: xarid"
+              value={expenseNote}
+              onChange={(e) => setExpenseNote(e.target.value)}
+            />
+            {!hideOwnSubmit && (
+              <button className="submit-btn" disabled={busy} onClick={submitExpense}>
+                Qo'shish
+              </button>
+            )}
           </div>
 
-          <div className="row">
-            <div>
-              <label>Summa (so'm)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="masalan: 60000"
-                min="0"
-                step="1000"
-                value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
-              />
+          <div className="tab-panel">
+            <label>Yo'nalish</label>
+            <div className="pay-select">
+              <div
+                className={`pay-opt ${transferFrom === 0 ? "sel" : ""}`}
+                onClick={() => {
+                  haptic("light");
+                  setTransferFromChoice(0);
+                }}
+              >
+                {friends[0]} → {friends[1]}
+              </div>
+              <div
+                className={`pay-opt ${transferFrom === 1 ? "sel" : ""}`}
+                onClick={() => {
+                  haptic("light");
+                  setTransferFromChoice(1);
+                }}
+              >
+                {friends[1]} → {friends[0]}
+              </div>
             </div>
-            <div>
-              <label>Sana</label>
-              <input
-                type="date"
-                value={transferDate}
-                onChange={(e) => setTransferDate(e.target.value)}
-              />
+            <div className="hint">
+              {friends[transferFrom]} {friends[1 - transferFrom]}ga naqd pul
+              beradi (qarz berish ham, qarz to'lash ham shu yerdan).
             </div>
+
+            <div className="row">
+              <div>
+                <label>Summa (so'm)</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="masalan: 60000"
+                  min="0"
+                  step="1000"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>Sana</label>
+                <input
+                  type="date"
+                  value={transferDate}
+                  onChange={(e) => setTransferDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <label>Izoh (ixtiyoriy)</label>
+            <input
+              type="text"
+              placeholder="masalan: qarzni uzish"
+              value={transferNote}
+              onChange={(e) => setTransferNote(e.target.value)}
+            />
+            {!hideOwnSubmit && (
+              <button className="submit-btn" disabled={busy} onClick={submitTransfer}>
+                Qo'shish
+              </button>
+            )}
           </div>
-          <label>Izoh (ixtiyoriy)</label>
-          <input
-            type="text"
-            placeholder="masalan: qarzni uzish"
-            value={transferNote}
-            onChange={(e) => setTransferNote(e.target.value)}
-          />
-          <button className="submit-btn" disabled={busy} onClick={submitTransfer}>
-            Qo'shish
-          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -469,14 +510,90 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentUserIndex, setCurrentUserIndex] = useState(null);
   const [telegramUser, setTelegramUser] = useState(null);
+  const [mainButtonState, setMainButtonState] = useState({ canSubmit: false });
+  const mainButtonRunRef = useRef(() => {});
+  const backActionRef = useRef(() => {});
   const friendsRef = useRef(friends);
   friendsRef.current = friends;
 
+  // Telegram Mini App hayot aylanishi: ready/expand, mavzu va rang sinxronizatsiyasi,
+  // viewport balandligi, foydalanuvchini aniqlash -- bir marta, ilova ochilganda.
   useEffect(() => {
-    const tgUser = getTelegramUser();
-    setTelegramUser(tgUser);
-    setCurrentUserIndex(resolveFriendIndex(tgUser));
+    const tg = initTelegram();
+    if (!tg) return;
+
+    setTelegramUser(tg.initDataUnsafe?.user ?? null);
+    setCurrentUserIndex(resolveFriendIndex(tg.initDataUnsafe?.user));
+
+    applyTelegramTheme(tg);
+    syncTelegramChrome(tg);
+    syncTelegramViewportVar(tg);
+
+    const onThemeChanged = () => {
+      applyTelegramTheme(tg);
+      syncTelegramChrome(tg);
+    };
+    const onViewportChanged = () => syncTelegramViewportVar(tg);
+
+    tg.onEvent?.("themeChanged", onThemeChanged);
+    tg.onEvent?.("viewportChanged", onViewportChanged);
+    return () => {
+      tg.offEvent?.("themeChanged", onThemeChanged);
+      tg.offEvent?.("viewportChanged", onViewportChanged);
+    };
   }, []);
+
+  // BackButton: qaysi sheet ochiq bo'lsa, shuni yopadi. Bitta doimiy handler
+  // ro'yxatdan o'tkaziladi, harakat esa ref orqali doim yangilanib turadi.
+  useEffect(() => {
+    backActionRef.current = () => {
+      if (addOpen) setAddOpen(false);
+      else if (settingsOpen) setSettingsOpen(false);
+    };
+  }, [addOpen, settingsOpen]);
+
+  useEffect(() => {
+    const tg = getTg();
+    if (!tg?.BackButton) return;
+    const handler = () => backActionRef.current();
+    tg.BackButton.onClick(handler);
+    return () => tg.BackButton.offClick(handler);
+  }, []);
+
+  useEffect(() => {
+    const tg = getTg();
+    if (!tg?.BackButton) return;
+    if (addOpen || settingsOpen) tg.BackButton.show();
+    else tg.BackButton.hide();
+  }, [addOpen, settingsOpen]);
+
+  // MainButton: "Yangi yozuv" sheet ochiq bo'lganda joriy tab'ning "Qo'shish"
+  // amalini bajaradi -- shu bilan sahifadagi tugma o'rniga native tugma ishlaydi.
+  useEffect(() => {
+    const tg = getTg();
+    if (!tg?.MainButton) return;
+    const handler = () => mainButtonRunRef.current?.();
+    tg.MainButton.onClick(handler);
+    return () => tg.MainButton.offClick(handler);
+  }, []);
+
+  useEffect(() => {
+    const tg = getTg();
+    if (!tg?.MainButton) return;
+    if (!addOpen) {
+      tg.MainButton.hide();
+      return;
+    }
+    tg.MainButton.setText("Qo'shish");
+    tg.MainButton.setParams({
+      is_visible: true,
+      is_active: mainButtonState.canSubmit && !busy,
+    });
+    if (busy) tg.MainButton.showProgress(false);
+    else tg.MainButton.hideProgress();
+  }, [addOpen, mainButtonState, busy]);
+
+  const hasNativeMainButton = Boolean(getTg()?.MainButton);
 
   const creatorName =
     currentUserIndex !== null ? friendsRef.current[currentUserIndex] : telegramDisplayName(telegramUser);
@@ -556,8 +673,13 @@ export default function App() {
       created_by_name: creatorName,
     });
     setBusy(false);
-    if (err) setError(err.message);
-    else await fetchAll();
+    if (err) {
+      setError(err.message);
+      haptic("error");
+    } else {
+      haptic("success");
+      await fetchAll();
+    }
   };
 
   const handleAddTransfer = async ({ from_friend, amount, date, note }) => {
@@ -572,11 +694,17 @@ export default function App() {
       created_by_name: creatorName,
     });
     setBusy(false);
-    if (err) setError(err.message);
-    else await fetchAll();
+    if (err) {
+      setError(err.message);
+      haptic("error");
+    } else {
+      haptic("success");
+      await fetchAll();
+    }
   };
 
   const handleDelete = async (id) => {
+    haptic("light");
     const { error: err } = await supabase.from("transactions").delete().eq("id", id);
     if (err) setError(err.message);
     else await fetchAll();
@@ -584,6 +712,7 @@ export default function App() {
 
   const handleClearAll = async () => {
     if (!confirm("Barcha tarixni o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi.")) return;
+    haptic("warning");
     const { error: err } = await supabase
       .from("transactions")
       .delete()
@@ -632,7 +761,10 @@ export default function App() {
             <BalanceHero
               friends={friends}
               balance={balance}
-              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenSettings={() => {
+                haptic("light");
+                setSettingsOpen(true);
+              }}
             />
             <HistoryList
               friends={friends}
@@ -645,7 +777,14 @@ export default function App() {
       </div>
 
       {!addOpen && !settingsOpen && (
-        <button className="fab" onClick={() => setAddOpen(true)} aria-label="Qo'shish">
+        <button
+          className="fab"
+          onClick={() => {
+            haptic("medium");
+            setAddOpen(true);
+          }}
+          aria-label="Qo'shish"
+        >
           <IconPlus size={26} />
         </button>
       )}
@@ -658,6 +797,11 @@ export default function App() {
           onAddTransfer={handleAddTransfer}
           onDone={() => setAddOpen(false)}
           currentUserIndex={currentUserIndex}
+          hideOwnSubmit={hasNativeMainButton}
+          onActionChange={({ canSubmit, run }) => {
+            mainButtonRunRef.current = run;
+            setMainButtonState((prev) => (prev.canSubmit === canSubmit ? prev : { canSubmit }));
+          }}
         />
       </Sheet>
 
