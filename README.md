@@ -63,7 +63,39 @@ vercel --prod
 
 ## Ismlarni o'zgartirish
 
-Bosh sahifadagi hisob kartochkasi ustida ikkala ism input maydoni bor —
-o'zgartirib, boshqa joyga bosishingiz bilan (blur) Supabase'ga saqlanadi va
-barcha eski yozuvlar yangi ismlar bilan ko'rinaveradi (chunki ismlar alohida
-saqlanadi, tranzaksiyalarda faqat 0/1 indeks bor).
+Hisob kartochkasidagi tishli g'ildirak (sozlash) tugmasi orqali ikkala ism
+o'zgartiriladi va Supabase'ga saqlanadi — barcha eski yozuvlar yangi ismlar
+bilan ko'rinaveradi (chunki ismlar alohida saqlanadi, tranzaksiyalarda faqat
+0/1 indeks bor).
+
+## Telegram Mini App sifatida ishlatish
+
+Ilova `window.Telegram.WebApp` orqali qaysi do'st ochganini avtomatik
+aniqlaydi ([src/telegram.js](src/telegram.js)):
+
+```js
+export const FRIEND_TELEGRAM_IDS = [1230394567, 593467614]; // [Muhammadali, Ulug'bek]
+```
+
+- Telegram ichida ochilganda, tepada **"Siz: <Ism>"** chip ko'rinadi va
+  "Qarz berish/to'lash" formasida yo'nalish avtomatik shu foydalanuvchidan
+  boshlanadi.
+- Har bir yozuv qaysi do'st tomonidan kiritilgani (`created_by_name`) tarixda
+  kichik yozuv sifatida ko'rsatiladi.
+- **Muhim:** bu identifikatsiya `initDataUnsafe` orqali client tomonda ishonch
+  bilan olinadi, kriptografik tekshiruvsiz (server yo'q). 2 kishilik shaxsiy
+  vosita uchun yetarli, lekin begona odam havolani ochsa (Telegram tashqarisida
+  yoki ID mos kelmasa) shunchaki "Siz: ..." chipi ko'rinmaydi va oddiy rejimda
+  ishlayveradi.
+
+Botga ulash uchun (Vercel'ga joylagandan keyin):
+
+1. [@BotFather](https://t.me/BotFather) da botingizni tanlang →
+   **Bot Settings → Menu Button → Configure Menu Button** → Vercel domenini
+   (masalan `https://qarz-hisobchi.vercel.app`) kiriting.
+2. Yoki botga `/newapp` orqali to'liq Mini App sifatida ro'yxatdan o'tkazing.
+
+`TELEGRAM_BOT_TOKEN` faqat BotFather/Bot API bilan ishlash uchun kerak —
+ilovaning o'zi (frontend) bu tokendan foydalanmaydi va u hech qachon
+`VITE_`-prefiksli o'zgaruvchiga qo'yilmasligi kerak (aks holda brauzerga
+oshkor bo'lib qoladi).

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { supabase } from "./supabaseClient";
+import { supabase, configured } from "./supabaseClient";
 import {
   IconWallet,
   IconSettings,
@@ -480,10 +480,6 @@ export default function App() {
 
   const creatorName =
     currentUserIndex !== null ? friendsRef.current[currentUserIndex] : telegramDisplayName(telegramUser);
-
-  const configured = Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-  );
 
   const fetchAll = useCallback(async () => {
     const [{ data: settings, error: settingsErr }, { data: txs, error: txErr }] =
