@@ -89,6 +89,15 @@ export function IconReceipt({ size = 28, className }) {
   );
 }
 
+export function IconUser({ size = 13, className }) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
 export function IconPlus({ size = 26, className }) {
   return (
     <svg {...base} width={size} height={size} className={className} strokeWidth={2.4}>

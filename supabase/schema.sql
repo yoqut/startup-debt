@@ -28,6 +28,9 @@ create table if not exists transactions (
   date date not null,
   note text,
   created_at timestamptz not null default now(),
+  -- Kim (qaysi do'st) shu yozuvni kiritgani -- Telegram Web App orqali avtomatik aniqlanadi.
+  created_by smallint check (created_by in (0, 1)),
+  created_by_name text,
   constraint transactions_shape_check check (
     (type = 'expense' and amount0 is not null and amount1 is not null and (amount0 + amount1) > 0
       and from_friend is null and amount is null)

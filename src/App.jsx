@@ -11,7 +11,9 @@ import {
   IconSend,
   IconReceipt,
   IconPlus,
+  IconUser,
 } from "./icons";
+import { getTelegramUser, resolveFriendIndex, telegramDisplayName } from "./telegram";
 
 const fmt = (n) => Math.round(n).toLocaleString("uz-UZ").replace(/,/g, " ");
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -168,14 +170,22 @@ function ExpenseShiftHint({ friends, amount0, amount1 }) {
   return <div className="hint">{text}</div>;
 }
 
-function AddTransactionForm({ friends, onAddExpense, onAddTransfer, busy, onDone }) {
+function AddTransactionForm({
+  friends,
+  onAddExpense,
+  onAddTransfer,
+  busy,
+  onDone,
+  currentUserIndex,
+}) {
   const [tab, setTab] = useState("expense");
   const [expenseAmount0, setExpenseAmount0] = useState("");
   const [expenseAmount1, setExpenseAmount1] = useState("");
   const [expenseDate, setExpenseDate] = useState(todayStr());
   const [expenseNote, setExpenseNote] = useState("");
 
-  const [transferFrom, setTransferFrom] = useState(0);
+  const [transferFromChoice, setTransferFromChoice] = useState(null);
+  const transferFrom = transferFromChoice ?? currentUserIndex ?? 0;
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDate, setTransferDate] = useState(todayStr());
   const [transferNote, setTransferNote] = useState("");
@@ -285,13 +295,13 @@ function AddTransactionForm({ friends, onAddExpense, onAddTransfer, busy, onDone
           <div className="pay-select">
             <div
               className={`pay-opt ${transferFrom === 0 ? "sel" : ""}`}
-              onClick={() => setTransferFrom(0)}
+              onClick={() => setTransferFromChoice(0)}
             >
               {friends[0]} → {friends[1]}
             </div>
             <div
               className={`pay-opt ${transferFrom === 1 ? "sel" : ""}`}
-              onClick={() => setTransferFrom(1)}
+              onClick={() => setTransferFromChoice(1)}
             >
               {friends[1]} → {friends[0]}
             </div>
@@ -365,6 +375,11 @@ function TxRow({ friends, tx, onDelete }) {
             {tx.note ? `${tx.note} • ` : ""}
             {shiftText}
           </div>
+          {tx.created_by_name && (
+            <div className="tx-creator">
+              <IconUser size={11} /> {tx.created_by_name} qo'shdi
+            </div>
+          )}
         </div>
         <div className="tx-amt">{fmt(total)}</div>
         <button className="tx-del" onClick={() => onDelete(tx.id)} aria-label="O'chirish">
@@ -385,6 +400,11 @@ function TxRow({ friends, tx, onDelete }) {
           {fromName} → {toName}
         </div>
         <div className="tx-sub">{tx.note || "Pul o'tkazma"}</div>
+        {tx.created_by_name && (
+          <div className="tx-creator">
+            <IconUser size={11} /> {tx.created_by_name} qo'shdi
+          </div>
+        )}
       </div>
       <div className="tx-amt">{fmt(tx.amount)}</div>
       <button className="tx-del" onClick={() => onDelete(tx.id)} aria-label="O'chirish">
@@ -447,8 +467,19 @@ export default function App() {
   const [error, setError] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [currentUserIndex, setCurrentUserIndex] = useState(null);
+  const [telegramUser, setTelegramUser] = useState(null);
   const friendsRef = useRef(friends);
   friendsRef.current = friends;
+
+  useEffect(() => {
+    const tgUser = getTelegramUser();
+    setTelegramUser(tgUser);
+    setCurrentUserIndex(resolveFriendIndex(tgUser));
+  }, []);
+
+  const creatorName =
+    currentUserIndex !== null ? friendsRef.current[currentUserIndex] : telegramDisplayName(telegramUser);
 
   const configured = Boolean(
     import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -525,6 +556,8 @@ export default function App() {
       amount1,
       date,
       note: note || null,
+      created_by: currentUserIndex,
+      created_by_name: creatorName,
     });
     setBusy(false);
     if (err) setError(err.message);
@@ -539,6 +572,8 @@ export default function App() {
       amount,
       date,
       note: note || null,
+      created_by: currentUserIndex,
+      created_by_name: creatorName,
     });
     setBusy(false);
     if (err) setError(err.message);
@@ -584,6 +619,11 @@ export default function App() {
         <span className="topbar-title">
           <IconWallet size={18} /> Qarz Hisobchi
         </span>
+        {creatorName && (
+          <span className="whoami-chip">
+            <IconUser size={11} /> Siz: {creatorName}
+          </span>
+        )}
       </header>
 
       <div className="wrap">
@@ -621,6 +661,7 @@ export default function App() {
           onAddExpense={handleAddExpense}
           onAddTransfer={handleAddTransfer}
           onDone={() => setAddOpen(false)}
+          currentUserIndex={currentUserIndex}
         />
       </Sheet>
 
