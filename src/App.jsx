@@ -25,6 +25,7 @@ import {
 } from "./telegram";
 
 const fmt = (n) => Math.round(n).toLocaleString("uz-UZ").replace(/,/g, " ");
+const onlyDigits = (s) => s.replace(/[^0-9]/g, "");
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const initials = (name) => (name || "?").trim().slice(0, 1).toUpperCase();
 
@@ -241,7 +242,20 @@ function AddTransactionForm({
       run: tab === "expense" ? submitExpense : submitTransfer,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, expenseCanSubmit, transferCanSubmit, busy]);
+  }, [
+    tab,
+    expenseCanSubmit,
+    transferCanSubmit,
+    busy,
+    expenseAmount0,
+    expenseAmount1,
+    expenseDate,
+    expenseNote,
+    transferFrom,
+    transferAmount,
+    transferDate,
+    transferNote,
+  ]);
 
   return (
     <div>
@@ -274,25 +288,23 @@ function AddTransactionForm({
               <div>
                 <label>{friends[0]} (so'm)</label>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="masalan: 200000"
-                  min="0"
-                  step="1000"
                   value={expenseAmount0}
-                  onChange={(e) => setExpenseAmount0(e.target.value)}
+                  onChange={(e) => setExpenseAmount0(onlyDigits(e.target.value))}
                 />
               </div>
               <div>
                 <label>{friends[1]} (so'm)</label>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="masalan: 100000"
-                  min="0"
-                  step="1000"
                   value={expenseAmount1}
-                  onChange={(e) => setExpenseAmount1(e.target.value)}
+                  onChange={(e) => setExpenseAmount1(onlyDigits(e.target.value))}
                 />
               </div>
             </div>
@@ -353,13 +365,12 @@ function AddTransactionForm({
               <div>
                 <label>Summa (so'm)</label>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="masalan: 60000"
-                  min="0"
-                  step="1000"
                   value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
+                  onChange={(e) => setTransferAmount(onlyDigits(e.target.value))}
                 />
               </div>
               <div>
